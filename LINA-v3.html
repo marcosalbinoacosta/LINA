@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soporte +LATINA | Kanban Board</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+
+    <style>
+        :root {
+            --brand-primary: #8e41a3;
+            --brand-dark: #1A1A1D;
+            --brand-accent: #C5A059;
+            --brand-light: #F4F6F8;
+            --status-new: #C2185B;
+            --status-process: #00ACC1;
+            --status-done: #2962FF;
+            --text-main: #333333;
+            --text-muted: #666666;
+        }
+
+        body {
+            background-color: var(--brand-light);
+            font-family: 'Roboto', 'Segoe UI', sans-serif;
+            color: var(--text-main);
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid var(--brand-light);
+            border-top: 5px solid var(--brand-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 9998;
+        }
+
+        .custom-toast {
+            min-width: 300px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast-success {
+            border-left: 4px solid #28a745;
+        }
+
+        .toast-error {
+            border-left: 4px solid #dc3545;
+        }
+
+        .toast-warning {
+            border-left: 4px solid #ffc107;
+        }
+
+        .toast-info {
+            border-left: 4px solid #17a2b8;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: linear-gradient(135deg, var(--brand-primary) 0%, #311B92 100%);
+            box-shadow: 0 4px 12px rgba(74, 20, 140, 0.3);
+            padding: 15px 0;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: white !important;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.4rem;
+        }
+
+        .navbar-brand img {
+            height: 45px;
+            filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.3));
+        }
+
+        .btn-refresh {
+            border: 1px solid var(--brand-accent);
+            color: var(--brand-accent);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-refresh:hover {
+            background-color: var(--brand-accent);
+            color: var(--brand-primary);
+        }
+
+        .btn-refresh:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Auto-refresh Toggle */
+        .auto-refresh-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--brand-accent);
+        }
+
+        .auto-refresh-toggle input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        /* Metricas */
+        .metric-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            text-align: center;
+            transition: transform 0.2s;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(74, 20, 140, 0.08);
+        }
+
+        .metric-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--brand-primary);
+            line-height: 1.2;
+        }
+
+        .metric-value.text-danger {
+            color: var(--status-new) !important;
+        }
+
+        .metric-value.text-warning {
+            color: var(--status-process) !important;
+        }
+
+        .metric-value.text-success {
+            color: var(--status-done) !important;
+        }
+
+        .metric-value.text-info {
+            color: var(--brand-accent) !important;
+        }
+
+        .metric-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 1px;
+            margin-top: 5px;
+        }
+
+        /* Kanban */
+        .kanban-board {
+            display: flex;
+            gap: 25px;
+            overflow-x: auto;
+            padding-bottom: 20px;
+        }
+
+        .kanban-column {
+            flex: 1;
+            min-width: 320px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+            border-top: 4px solid transparent;
+        }
+
+        .kanban-column:nth-of-type(1) {
+            border-top-color: var(--status-new);
+        }
+
+        .kanban-column:nth-of-type(2) {
+            border-top-color: var(--status-process);
+        }
+
+        .kanban-column:nth-of-type(3) {
+            border-top-color: var(--status-done);
+        }
+
+        .kanban-column-header {
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--brand-primary);
+            font-size: 1rem;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .badge.bg-secondary {
+            background-color: var(--brand-primary) !important;
+            opacity: 0.8;
+        }
+
+        .kanban-items {
+            min-height: 200px;
+        }
+
+        /* Tarjetas */
+        .ticket-card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+            cursor: grab;
+            border: 1px solid #f0f0f0;
+            border-left: 4px solid #ccc;
+            transition: all 0.2s ease;
+        }
+
+        .ticket-card:hover {
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .ticket-card:active {
+            cursor: grabbing;
+        }
+
+        .ticket-card.nuevo {
+            border-left-color: var(--status-new);
+        }
+
+        .ticket-card.proceso {
+            border-left-color: var(--status-process);
+        }
+
+        .ticket-card.finalizado {
+            border-left-color: var(--status-done);
+            opacity: 0.85;
+        }
+
+        .ticket-id {
+            background-color: #f0f0f0;
+            color: var(--text-muted);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .time-badge {
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--text-muted);
+        }
+
+        .time-badge.late {
+            color: var(--status-new);
+            font-weight: 700;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #bbb;
+        }
+
+        /* Drag Disabled State */
+        .drag-disabled {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="text-center">
+            <div class="spinner"></div>
+            <p class="text-white mt-3">Cargando datos...</p>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <nav class="navbar navbar-dark mb-5">
+        <div class="container-fluid px-5">
+            <span class="navbar-brand">
+                <img src="./assets/logo.png" alt="LINA+ Logo" style="height: 100px;">
+            </span>
+            <div class="d-flex gap-3 align-items-center">
+                <label class="auto-refresh-toggle">
+                    <input type="checkbox" id="autoRefreshToggle" checked>
+                    <span>Auto-actualizar</span>
+                </label>
+                <button class="btn btn-refresh btn-sm" id="btnRefresh">
+                    <i class="fas fa-sync"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-5">
+        <div class="row mb-5">
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value text-danger" id="metric-pendientes">0</div>
+                    <div class="metric-label">Pendientes</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value text-warning" id="metric-proceso">0</div>
+                    <div class="metric-label">En Proceso</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value text-success" id="metric-hoy">0</div>
+                    <div class="metric-label">Resueltos Hoy</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card">
+                    <div class="metric-value text-info" id="metric-tiempo">0h</div>
+                    <div class="metric-label">Tiempo Promedio</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-5">
+            <div class="col-md-4">
+                <div class="metric-card" style="min-height: 280px;">
+                    <h6 class="text-muted mb-3 text-uppercase fw-bold" style="font-size: 0.8rem;">Volumen Semanal</h6>
+                    <div style="height: 200px; width: 100%;">
+                        <canvas id="chartWeekly"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="metric-card" style="min-height: 280px;">
+                    <h6 class="text-muted mb-3 text-uppercase fw-bold" style="font-size: 0.8rem;">Por Categoría</h6>
+                    <div style="height: 200px; width: 100%;">
+                        <canvas id="chartCategories"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="metric-card" style="min-height: 280px;">
+                    <h6 class="text-muted mb-3 text-uppercase fw-bold" style="font-size: 0.8rem;">Efectividad (SLA < 3
+                            días)</h6>
+                            <div style="height: 200px; width: 100%;">
+                                <canvas id="chartSLA"></canvas>
+                            </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="kanban-board">
+            <div class="kanban-column">
+                <div class="kanban-column-header">
+                    <span><i class="fas fa-inbox"></i> Nuevos</span>
+                    <span class="badge bg-secondary" id="count-nuevos">0</span>
+                </div>
+                <div id="col-nuevo" class="kanban-items" data-estado="nuevo"></div>
+            </div>
+
+            <div class="kanban-column">
+                <div class="kanban-column-header">
+                    <span><i class="fas fa-cog"></i> En Proceso</span>
+                    <span class="badge bg-secondary" id="count-proceso">0</span>
+                </div>
+                <div id="col-proceso" class="kanban-items" data-estado="en_progreso"></div>
+            </div>
+
+            <div class="kanban-column">
+                <div class="kanban-column-header">
+                    <span><i class="fas fa-check"></i> Finalizado</span>
+                    <span class="badge bg-secondary" id="count-fin">0</span>
+                </div>
+                <div id="col-finalizado" class="kanban-items" data-estado="finalizado"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Resolver -->
+    <div class="modal fade" id="modalResolver" data-bs-backdrop="static" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">Finalizar Ticket</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Estás moviendo el ticket <b id="lblTicketId"></b> a finalizado.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Solución Técnica:</label>
+                        <textarea class="form-control" id="txtSolucion" rows="3" placeholder="Describe qué hiciste..."
+                            required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="btnConfirmarSolucion">Cerrar Ticket</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detalle -->
+    <div class="modal fade" id="modalDetalleTicket" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Detalle del Ticket <span id="detailTicketId"></span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">Cliente</h6>
+                            <p id="detailCliente" class="text-muted"></p>
+                            <h6 class="fw-bold">Teléfono</h6>
+                            <p id="detailTelefono" class="text-muted"></p>
+                            <h6 class="fw-bold">Categoría</h6>
+                            <p id="detailCategoria" class="text-muted"></p>
+                            <h6 class="fw-bold">Estado</h6>
+                            <p id="detailEstado" class="text-muted"></p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-bold">Problema Reportado</h6>
+                            <div class="p-2 bg-light rounded border mb-3">
+                                <p id="detailMensaje" class="mb-0"></p>
+                            </div>
+                            <h6 class="fw-bold mt-3">Solución Técnica</h6>
+                            <div class="p-2 bg-light rounded border mb-3">
+                                <p id="detailSolucion" class="mb-0 text-secondary font-monospace small"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="detailImageContainer" class="mt-4 border-top pt-3 text-center" style="display: none;">
+                        <h6 class="fw-bold text-start mb-3"><i class="fas fa-image"></i> Imagen Adjunta</h6>
+                        <img id="detailImage" src="" alt="Adjunto del ticket" class="img-fluid rounded shadow-sm border"
+                            style="max-height: 500px;">
+                        <div class="mt-2 text-end">
+                            <a id="detailImageLink" href="#" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-external-link-alt"></i> Abrir en nueva pestaña
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        /**
+         * ============================================================================
+         * CONFIGURACIÓN Y CONSTANTES
+         * ============================================================================
+         */
+        const CONFIG = {
+            N8N_API: "https://386c177a92af.ngrok-free.app/webhook",
+            AUTH_HEADERS: {
+                "ngrok-skip-browser-warning": "true",
+                "Content-Type": "application/json"
+            },
+            REFRESH_INTERVAL: 60000,
+            USE_MOCK_DATA: false,
+            ESTADOS: {
+                NUEVO: 'nuevo',
+                EN_PROGRESO: 'en_progreso',
+                FINALIZADO: 'finalizado'
+            }
+        };
+
+        /**
+         * ============================================================================
+         * GESTIÓN DE ESTADO
+         * ============================================================================
+         */
+        const AppState = {
+            tickets: [],
+            ticketsBackup: [], // Para rollback
+            charts: {},
+            isLoading: false,
+            isDragging: false,
+            autoRefreshInterval: null,
+            modals: {
+                resolver: null,
+                detalle: null
+            },
+
+            init() {
+                this.modals.resolver = new bootstrap.Modal(document.getElementById('modalResolver'));
+                this.modals.detalle = new bootstrap.Modal(document.getElementById('modalDetalleTicket'));
+            },
+
+            setTickets(tickets) {
+                this.ticketsBackup = JSON.parse(JSON.stringify(this.tickets));
+                this.tickets = tickets;
+            },
+
+            rollback() {
+                this.tickets = JSON.parse(JSON.stringify(this.ticketsBackup));
+                console.warn('[ROLLBACK] Estado revertido');
+            }
+        };
+
+        /**
+         * ============================================================================
+         * UTILIDADES
+         * ============================================================================
+         */
+        const Utils = {
+            /**
+             * Sanitiza texto HTML para prevenir XSS
+             */
+            sanitize(dirty) {
+                if (typeof DOMPurify !== 'undefined') {
+                    return DOMPurify.sanitize(dirty, { ALLOWED_TAGS: [] });
+                }
+                const div = document.createElement('div');
+                div.textContent = dirty;
+                return div.innerHTML;
+            },
+
+            /**
+             * Normaliza estados a valores consistentes
+             */
+            normalizeState(estado) {
+                if (!estado) return CONFIG.ESTADOS.NUEVO;
+
+                const e = estado.toLowerCase().trim();
+                if (e === 'nuevo') return CONFIG.ESTADOS.NUEVO;
+                if (e.includes('proceso') || e.includes('progreso')) return CONFIG.ESTADOS.EN_PROGRESO;
+                if (e.includes('finaliz') || e.includes('resuelto') || e.includes('listo')) {
+                    return CONFIG.ESTADOS.FINALIZADO;
+                }
+                return CONFIG.ESTADOS.NUEVO;
+            },
+
+            /**
+             * Valida que una fecha sea válida
+             */
+            parseDate(dateStr) {
+                if (!dateStr) return null;
+                const date = new Date(dateStr);
+                return isNaN(date.getTime()) ? null : date;
+            },
+
+            /**
+             * Calcula diferencia de horas
+             */
+            getHoursDiff(dateStr) {
+                const date = this.parseDate(dateStr);
+                if (!date) return 0;
+                return Math.floor((new Date() - date) / 3600000);
+            },
+
+            /**
+             * Convierte URLs de Google Drive a formato embebible
+             */
+            getGoogleDriveDirectLink(url) {
+                if (!url) return '';
+
+                const matchFile = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                const id = matchFile?.[1] || matchId?.[1];
+
+                return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w1000` : url;
+            }
+        };
+
+        /**
+         * ============================================================================
+         * NOTIFICACIONES TOAST
+         * ============================================================================
+         */
+        const Toast = {
+            show(message, type = 'info') {
+                const container = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = `custom-toast toast-${type}`;
+
+                const icons = {
+                    success: 'fa-check-circle',
+                    error: 'fa-times-circle',
+                    warning: 'fa-exclamation-triangle',
+                    info: 'fa-info-circle'
+                };
+
+                toast.innerHTML = `
+                    <i class="fas ${icons[type]} fa-lg"></i>
+                    <span>${Utils.sanitize(message)}</span>
+                `;
+
+                container.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.style.animation = 'slideIn 0.3s ease reverse';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            },
+
+            success(msg) { this.show(msg, 'success'); },
+            error(msg) { this.show(msg, 'error'); },
+            warning(msg) { this.show(msg, 'warning'); },
+            info(msg) { this.show(msg, 'info'); }
+        };
+
+        /**
+         * ============================================================================
+         * GESTIÓN DE CARGA
+         * ============================================================================
+         */
+        const LoadingManager = {
+            show() {
+                AppState.isLoading = true;
+                document.getElementById('loadingOverlay').classList.add('active');
+                document.getElementById('btnRefresh').disabled = true;
+            },
+
+            hide() {
+                AppState.isLoading = false;
+                document.getElementById('loadingOverlay').classList.remove('active');
+                document.getElementById('btnRefresh').disabled = false;
+            }
+        };
+
+        /**
+         * ============================================================================
+         * DATOS DE PRUEBA
+         * ============================================================================
+         */
+        function generarDatosPrueba() {
+            const now = new Date();
+            return [
+                {
+                    ticket_id: 'T001',
+                    nombre_cliente: 'Cliente A',
+                    mensaje_problema: 'Problema con la red',
+                    estado: 'Nuevo',
+                    fecha_hora: new Date(now.getTime() - 5 * 3600000).toISOString(),
+                    telefono: '123456789',
+                    categoria: 'Red/Internet'
+                },
+                {
+                    ticket_id: 'T002',
+                    nombre_cliente: 'Cliente B',
+                    mensaje_problema: 'No funciona la impresora',
+                    estado: 'En Progreso',
+                    fecha_hora: new Date(now.getTime() - 2 * 3600000).toISOString(),
+                    telefono: '',
+                    categoria: 'Hardware'
+                },
+                {
+                    ticket_id: 'T003',
+                    nombre_cliente: 'Cliente C',
+                    mensaje_problema: 'Software lento',
+                    estado: 'Finalizado',
+                    fecha_hora: new Date(now.getTime() - 3600000).toISOString(),
+                    telefono: '987654321',
+                    categoria: 'Software',
+                    fecha_cierre: new Date(now.getTime() - 1800000).toISOString()
+                },
+                {
+                    ticket_id: 'T004',
+                    nombre_cliente: 'Cliente D',
+                    mensaje_problema: 'Acceso a sistema',
+                    estado: 'Nuevo',
+                    fecha_hora: new Date(now.getTime() - 10 * 3600000).toISOString(),
+                    telefono: '',
+                    categoria: 'Accesos'
+                }
+            ];
+        }
+
+        /**
+         * ============================================================================
+         * API - CARGA Y ACTUALIZACIÓN DE DATOS
+         * ============================================================================
+         */
+        const API = {
+            async cargarTickets() {
+                if (CONFIG.USE_MOCK_DATA) {
+                    console.warn('[API] Usando datos de prueba');
+                    await new Promise(r => setTimeout(r, 500));
+                    return generarDatosPrueba();
+                }
+
+                try {
+                    const res = await fetch(`${CONFIG.N8N_API}/get-tickets`, {
+                        headers: CONFIG.AUTH_HEADERS
+                    });
+
+                    if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+                    }
+
+                    const data = await res.json();
+                    return Array.isArray(data) ? data : [];
+
+                } catch (error) {
+                    console.error('[API Error]', error);
+                    throw error;
+                }
+            },
+
+            async actualizarTicket(ticketId, nuevoEstado, solucion = '') {
+                if (CONFIG.USE_MOCK_DATA) {
+                    console.log(`[API MOCK] Actualizando ${ticketId} -> ${nuevoEstado}`);
+                    await new Promise(r => setTimeout(r, 500));
+                    return { success: true };
+                }
+
+                try {
+                    const res = await fetch(`${CONFIG.N8N_API}/solve-ticket`, {
+                        method: 'POST',
+                        headers: CONFIG.AUTH_HEADERS,
+                        body: JSON.stringify({
+                            ticket_id: ticketId,
+                            estado: nuevoEstado,
+                            solucion_tecnica: solucion,
+                            timestamp: new Date().toISOString()
+                        })
+                    });
+
+                    if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}`);
+                    }
+
+                    return await res.json();
+
+                } catch (error) {
+                    console.error('[API Error] Actualización falló', error);
+                    throw error;
+                }
+            }
+        };
+
+        /**
+         * ============================================================================
+         * RENDERIZADO DE TICKETS
+         * ============================================================================
+         */
+        const TicketRenderer = {
+            render() {
+                ['col-nuevo', 'col-proceso', 'col-finalizado'].forEach(id => {
+                    document.getElementById(id).innerHTML = '';
+                });
+
+                AppState.tickets.forEach(ticket => {
+                    const card = this.createCard(ticket);
+                    const estado = Utils.normalizeState(ticket.estado);
+                    const columnId = this.getColumnId(estado);
+
+                    if (columnId) {
+                        document.getElementById(columnId).insertAdjacentHTML('beforeend', card);
+                    }
+                });
+
+                this.updateCounters();
+            },
+
+            getColumnId(estado) {
+                const map = {
+                    [CONFIG.ESTADOS.NUEVO]: 'col-nuevo',
+                    [CONFIG.ESTADOS.EN_PROGRESO]: 'col-proceso',
+                    [CONFIG.ESTADOS.FINALIZADO]: 'col-finalizado'
+                };
+                return map[estado] || 'col-nuevo';
+            },
+
+            createCard(ticket) {
+                const diffHrs = Utils.getHoursDiff(ticket.fecha_hora);
+                const estado = Utils.normalizeState(ticket.estado);
+                const isLate = diffHrs > 4 && estado !== CONFIG.ESTADOS.FINALIZADO;
+
+                const timeBadge = isLate
+                    ? `<small class="time-badge late"><i class="fas fa-exclamation-circle"></i> +4h demora</small>`
+                    : `<small class="time-badge"><i class="far fa-clock"></i> Hace ${diffHrs}h</small>`;
+
+                const claseBorde = {
+                    [CONFIG.ESTADOS.NUEVO]: 'nuevo',
+                    [CONFIG.ESTADOS.EN_PROGRESO]: 'proceso',
+                    [CONFIG.ESTADOS.FINALIZADO]: 'finalizado'
+                }[estado] || '';
+
+                const tieneImagen = ticket.url_imagen && ticket.url_imagen.trim().length > 0;
+                const iconImagen = tieneImagen ? `<i class="fas fa-image text-muted" title="Ver imagen adjunta"></i>` : '';
+
+                const nombre = Utils.sanitize(ticket.nombre_cliente || 'Sin nombre');
+                const problema = Utils.sanitize(ticket.mensaje_problema || 'Sin descripción');
+
+                return `
+                    <div class="ticket-card ${claseBorde}" 
+                         data-id="${ticket.ticket_id}" 
+                         data-estado="${estado}"
+                         onclick="TicketDetail.show('${ticket.ticket_id}')">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <strong>${nombre}</strong>
+                            <div class="d-flex align-items-center gap-2">
+                                ${iconImagen}
+                                <span class="ticket-id">#${ticket.ticket_id}</span>
+                            </div>
+                        </div>
+                        <p class="mb-2 mt-2 text-muted small" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                            ${problema}
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
+                            ${timeBadge}
+                            ${ticket.telefono ? `<a href="https://wa.me/${ticket.telefono}" target="_blank" class="text-success" title="WhatsApp" onclick="event.stopPropagation()"><i class="fab fa-whatsapp"></i></a>` : ''}
+                        </div>
+                    </div>
+                `;
+            },
+
+            updateCounters() {
+                document.getElementById('count-nuevos').textContent =
+                    document.getElementById('col-nuevo').children.length;
+                document.getElementById('count-proceso').textContent =
+                    document.getElementById('col-proceso').children.length;
+                document.getElementById('count-fin').textContent =
+                    document.getElementById('col-finalizado').children.length;
+            }
+        };
+
+        /**
+         * ============================================================================
+         * DRAG & DROP
+         * ============================================================================
+         */
+        const DragDrop = {
+            draggedTicketId: null,
+            sourceColumn: null,
+
+            init() {
+                const columns = ['col-nuevo', 'col-proceso', 'col-finalizado'];
+
+                columns.forEach(colId => {
+                    new Sortable(document.getElementById(colId), {
+                        group: 'shared',
+                        animation: 150,
+                        disabled: false,
+                        onStart: (evt) => {
+                            AppState.isDragging = true;
+                            this.draggedTicketId = evt.item.getAttribute('data-id');
+                            this.sourceColumn = evt.from.id;
+                        },
+                        onEnd: (evt) => {
+                            const targetColumn = evt.to.id;
+
+                            if (this.sourceColumn === targetColumn) {
+                                AppState.isDragging = false;
+                                return;
+                            }
+
+                            this.handleDrop(targetColumn);
+                            AppState.isDragging = false;
+                        }
+                    });
+                });
+            },
+
+            handleDrop(targetColumn) {
+                const stateMap = {
+                    'col-nuevo': CONFIG.ESTADOS.NUEVO,
+                    'col-proceso': CONFIG.ESTADOS.EN_PROGRESO,
+                    'col-finalizado': CONFIG.ESTADOS.FINALIZADO
+                };
+
+                const nuevoEstado = stateMap[targetColumn];
+
+                if (nuevoEstado === CONFIG.ESTADOS.FINALIZADO) {
+                    document.getElementById('lblTicketId').textContent = this.draggedTicketId;
+                    document.getElementById('txtSolucion').value = '';
+                    AppState.modals.resolver.show();
+                } else {
+                    TicketUpdater.update(this.draggedTicketId, nuevoEstado);
+                }
+            }
+        };
+
+        /**
+         * ============================================================================
+         * ACTUALIZACIÓN DE TICKETS
+         * ============================================================================
+         */
+        const TicketUpdater = {
+            async update(ticketId, nuevoEstado, solucion = '') {
+                const ticket = AppState.tickets.find(t => t.ticket_id === ticketId);
+                if (!ticket) {
+                    Toast.error('Ticket no encontrado');
+                    return;
+                }
+
+                // Actualización optimista
+                const estadoAnterior = ticket.estado;
+                ticket.estado = nuevoEstado;
+                if (solucion) ticket.solucion_tecnica = solucion;
+                if (nuevoEstado === CONFIG.ESTADOS.FINALIZADO && !ticket.fecha_cierre) {
+                    ticket.fecha_cierre = new Date().toISOString();
+                }
+
+                TicketRenderer.render();
+                Metrics.calculate();
+
+                try {
+                    await API.actualizarTicket(ticketId, nuevoEstado, solucion);
+                    Toast.success(`Ticket #${ticketId} actualizado`);
+                } catch (error) {
+                    Toast.error('Error al guardar. Revirtiendo cambios...');
+                    ticket.estado = estadoAnterior;
+                    TicketRenderer.render();
+                    Metrics.calculate();
+                }
+            }
+        };
+
+        /**
+         * ============================================================================
+         * DETALLE DE TICKET
+         * ============================================================================
+         */
+        const TicketDetail = {
+            show(ticketId) {
+                if (AppState.isDragging) return;
+
+                const ticket = AppState.tickets.find(t => t.ticket_id === ticketId);
+                if (!ticket) return;
+
+                document.getElementById('detailTicketId').textContent = `#${ticket.ticket_id}`;
+                document.getElementById('detailCliente').textContent = Utils.sanitize(ticket.nombre_cliente || 'N/A');
+                document.getElementById('detailTelefono').textContent = ticket.telefono || 'No registrado';
+                document.getElementById('detailCategoria').textContent = ticket.categoria || 'General';
+                document.getElementById('detailEstado').textContent = ticket.estado || 'Sin Estado';
+                document.getElementById('detailMensaje').textContent = Utils.sanitize(ticket.mensaje_problema || 'N/A');
+                document.getElementById('detailSolucion').textContent = Utils.sanitize(ticket.solucion_tecnica || 'Sin solución registrada');
+
+                const imgContainer = document.getElementById('detailImageContainer');
+                const img = document.getElementById('detailImage');
+                const link = document.getElementById('detailImageLink');
+
+                if (ticket.url_imagen && ticket.url_imagen.trim()) {
+                    const embedUrl = Utils.getGoogleDriveDirectLink(ticket.url_imagen);
+                    img.src = embedUrl;
+                    link.href = ticket.url_imagen;
+                    imgContainer.style.display = 'block';
+                } else {
+                    imgContainer.style.display = 'none';
+                }
+
+                AppState.modals.detalle.show();
+            }
+        };
+
+        /**
+         * ============================================================================
+         * MÉTRICAS Y GRÁFICOS
+         * ============================================================================
+         */
+        const Metrics = {
+            calculate() {
+                const tickets = AppState.tickets;
+
+                const nuevo = tickets.filter(t => Utils.normalizeState(t.estado) === CONFIG.ESTADOS.NUEVO).length;
+                const proceso = tickets.filter(t => Utils.normalizeState(t.estado) === CONFIG.ESTADOS.EN_PROGRESO).length;
+                const finalizados = tickets.filter(t => Utils.normalizeState(t.estado) === CONFIG.ESTADOS.FINALIZADO);
+
+                const hoy = new Date().toISOString().slice(0, 10);
+                const resueltosHoy = finalizados.filter(t => t.fecha_hora?.includes(hoy)).length;
+
+                document.getElementById('metric-pendientes').textContent = nuevo;
+                document.getElementById('metric-proceso').textContent = proceso;
+                document.getElementById('metric-hoy').textContent = resueltosHoy;
+
+                // Tiempo promedio
+                let totalHoras = 0;
+                finalizados.forEach(t => {
+                    const created = Utils.parseDate(t.fecha_hora);
+                    const closed = Utils.parseDate(t.fecha_cierre) || new Date();
+                    if (created) {
+                        totalHoras += (closed - created) / 3600000;
+                    }
+                });
+                const promedio = finalizados.length > 0 ? Math.round(totalHoras / finalizados.length) : 0;
+                document.getElementById('metric-tiempo').textContent = `${promedio}h`;
+
+                this.updateCharts();
+            },
+
+            updateCharts() {
+                const data = this.processChartData();
+                this.renderWeeklyChart(data.weekly);
+                this.renderCategoryChart(data.categories);
+                this.renderSLAChart(data.sla);
+            },
+
+            processChartData() {
+                const tickets = AppState.tickets;
+                const categories = {};
+                const today = new Date();
+                const last7Days = [];
+                const weeklyData = {};
+
+                // Últimos 7 días
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date(today);
+                    d.setDate(today.getDate() - i);
+                    const dateStr = d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+                    last7Days.push(dateStr);
+                    weeklyData[dateStr] = { nuevos: 0, resueltos: 0 };
+                }
+
+                let onTime = 0, late = 0;
+                const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+
+                tickets.forEach(t => {
+                    // Categorías
+                    const cat = t.categoria || 'General';
+                    categories[cat] = (categories[cat] || 0) + 1;
+
+                    // Volumen semanal
+                    const ticketDate = Utils.parseDate(t.fecha_hora);
+                    if (ticketDate) {
+                        const dateStr = ticketDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+                        if (weeklyData[dateStr]) {
+                            weeklyData[dateStr].nuevos += 1;
+                        }
+                    }
+
+                    // SLA
+                    if (Utils.normalizeState(t.estado) === CONFIG.ESTADOS.FINALIZADO) {
+                        const created = Utils.parseDate(t.fecha_hora);
+                        const closed = Utils.parseDate(t.fecha_cierre) || new Date();
+                        if (created && (closed - created) <= threeDaysMs) {
+                            onTime++;
+                        } else {
+                            late++;
+                        }
+
+                        const closeDateStr = closed.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+                        if (weeklyData[closeDateStr]) {
+                            weeklyData[closeDateStr].resueltos += 1;
+                        }
+                    }
+                });
+
+                return {
+                    weekly: {
+                        labels: last7Days,
+                        nuevos: last7Days.map(d => weeklyData[d].nuevos),
+                        resueltos: last7Days.map(d => weeklyData[d].resueltos)
+                    },
+                    categories: Object.entries(categories).sort((a, b) => b[1] - a[1]),
+                    sla: { onTime, late }
+                };
+            },
+
+            renderWeeklyChart(data) {
+                const ctx = document.getElementById('chartWeekly').getContext('2d');
+                if (AppState.charts.weekly) AppState.charts.weekly.destroy();
+
+                AppState.charts.weekly = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [
+                            { label: 'Nuevos', data: data.nuevos, backgroundColor: '#C2185B', borderRadius: 4 },
+                            { label: 'Resueltos', data: data.resueltos, backgroundColor: '#2962FF', borderRadius: 4 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { stacked: true, grid: { display: false } },
+                            y: { stacked: true, beginAtZero: true }
+                        },
+                        plugins: { legend: { position: 'bottom' } }
+                    }
+                });
+            },
+
+            renderCategoryChart(data) {
+                const ctx = document.getElementById('chartCategories').getContext('2d');
+                if (AppState.charts.categories) AppState.charts.categories.destroy();
+
+                AppState.charts.categories = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(i => i[0]),
+                        datasets: [{
+                            label: 'Tickets',
+                            data: data.map(i => i[1]),
+                            backgroundColor: '#8e41a3',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { beginAtZero: true },
+                            y: { grid: { display: false } }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            },
+
+            renderSLAChart(data) {
+                const ctx = document.getElementById('chartSLA').getContext('2d');
+                if (AppState.charts.sla) AppState.charts.sla.destroy();
+
+                AppState.charts.sla = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['En Tiempo (<3d)', 'Atrasados (>3d)'],
+                        datasets: [{
+                            data: [data.onTime, data.late],
+                            backgroundColor: ['#28a745', '#dc3545'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: { legend: { position: 'bottom' } }
+                    }
+                });
+            }
+        };
+
+        /**
+         * ============================================================================
+         * AUTO-REFRESH
+         * ============================================================================
+         */
+        const AutoRefresh = {
+            start() {
+                if (AppState.autoRefreshInterval) return;
+
+                AppState.autoRefreshInterval = setInterval(async () => {
+                    console.log('[Auto-Refresh] Actualizando...');
+                    await App.loadData();
+                    Toast.info('Datos actualizados');
+                }, CONFIG.REFRESH_INTERVAL);
+            },
+
+            stop() {
+                if (AppState.autoRefreshInterval) {
+                    clearInterval(AppState.autoRefreshInterval);
+                    AppState.autoRefreshInterval = null;
+                }
+            },
+
+            toggle(enabled) {
+                if (enabled) {
+                    this.start();
+                    Toast.success('Auto-actualización activada');
+                } else {
+                    this.stop();
+                    Toast.info('Auto-actualización desactivada');
+                }
+            }
+        };
+
+        /**
+         * ============================================================================
+         * APLICACIÓN PRINCIPAL
+         * ============================================================================
+         */
+        const App = {
+            async init() {
+                AppState.init();
+                DragDrop.init();
+                this.setupEventListeners();
+                await this.loadData();
+                AutoRefresh.start();
+            },
+
+            async loadData() {
+                LoadingManager.show();
+                try {
+                    const tickets = await API.cargarTickets();
+                    AppState.setTickets(tickets);
+                    TicketRenderer.render();
+                    Metrics.calculate();
+                } catch (error) {
+                    Toast.error('Error al cargar datos: ' + error.message);
+                    console.error(error);
+                } finally {
+                    LoadingManager.hide();
+                }
+            },
+
+            setupEventListeners() {
+                // Refresh manual
+                document.getElementById('btnRefresh').addEventListener('click', () => {
+                    this.loadData();
+                });
+
+                // Auto-refresh toggle
+                document.getElementById('autoRefreshToggle').addEventListener('change', (e) => {
+                    AutoRefresh.toggle(e.target.checked);
+                });
+
+                // Confirmar solución
+                document.getElementById('btnConfirmarSolucion').addEventListener('click', async () => {
+                    const solucion = document.getElementById('txtSolucion').value.trim();
+                    const ticketId = document.getElementById('lblTicketId').textContent;
+
+                    if (!solucion) {
+                        Toast.warning('Debes escribir una solución');
+                        return;
+                    }
+
+                    const btn = document.getElementById('btnConfirmarSolucion');
+                    btn.disabled = true;
+                    btn.textContent = 'Guardando...';
+
+                    await TicketUpdater.update(ticketId, CONFIG.ESTADOS.FINALIZADO, solucion);
+
+                    btn.disabled = false;
+                    btn.textContent = 'Cerrar Ticket';
+                    AppState.modals.resolver.hide();
+                });
+
+                // Limpiar modal al cerrar
+                document.getElementById('modalResolver').addEventListener('hidden.bs.modal', () => {
+                    TicketRenderer.render();
+                });
+            }
+        };
+
+        /**
+         * ============================================================================
+         * INICIALIZACIÓN
+         * ============================================================================
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            App.init();
+        });
+    </script>
+</body>
+
+</html>
